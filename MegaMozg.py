@@ -1,6 +1,9 @@
 import random
+
 from telethon import types
+
 from .. import loader, utils
+
 
 @loader.tds
 class MegaMozgMod(loader.Module):
@@ -11,6 +14,7 @@ class MegaMozgMod(loader.Module):
         'status': '{}{}',
         'on': '{}Включён',
         'off': '{}Выключен',
+
     }
     _db_name = 'MegaMozg'
 
@@ -48,8 +52,9 @@ class MegaMozgMod(loader.Module):
         if args.isdigit():
             self.db.set(self._db_name, 'chance', int(args))
             return await utils.answer(m, self.strings('status').format(self.strings('pref'), args))
+
         return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
-    
+
     async def watcher(self, m: types.Message):
         if not isinstance(m, types.Message):
             return
@@ -62,31 +67,32 @@ class MegaMozgMod(loader.Module):
             if random.randint(0, ch) != 0:
                 return
         text = m.raw_text
-
-        # Фильтруем слова длиной 3 или более символов
-        long_words = list(filter(lambda x: len(x) >= 3, text.split()))
-
-        # Проверяем, есть ли подходящие слова
-        if not long_words:
-            return  # Если нет подходящих слов, выходим из функции
-
-        words = {random.choice(long_words) for _ in ".."}
+        words_list = [word for word in text.split() if len(word) >= 3]
+        if not words_list:
+            return
+        # Берем два случайных слова из списка
+        words = set()
+        for _ in range(2):
+            words.add(random.choice(words_list))
         msgs = []
         for word in words:
-            [msgs.append(x) async for x in m.client.iter_messages(m.chat.id, search=word) if x.replies and x.replies.max_id]
-
-        # Проверка на пустоту списка msgs перед выбором
+            async for x in m.client.iter_messages(m.chat.id, search=word):
+                if x.replies and x.replies.max_id:
+                    msgs.append(x)
         if not msgs:
-            return  # Пропускаем, если сообщений для ответа не найдено
-
+            return
         replier = random.choice(msgs)
         sid = replier.id
         eid = replier.replies.max_id
-        msgs = [x async for x in m.client.iter_messages(m.chat.id, ids=list(range(sid + 1, eid + 1))) if x and x.reply_to and x.reply_to.reply_to_msg_id == sid]
-
-        # Ещё одна проверка на пустоту списка msgs после второго запроса сообщений
-        if not msgs:
-            return  # Пропускаем, если нет подходящих сообщений для ответа
-
-        msg = random.choice(msgs)
+        if not eid:
+            return
+        reply_msgs = []
+        async for x in m.client.iter_messages(
+                m.chat.id,
+                ids=list(range(sid + 1, eid + 1))):
+            if x and x.reply_to and x.reply_to.reply_to_msg_id == sid:
+                reply_msgs.append(x)
+        if not reply_msgs:
+            return
+        msg = random.choice(reply_msgs)
         await m.reply(msg)
