@@ -48,10 +48,11 @@ class MegaMozgMod(loader.Module):
         if m.chat.id not in self.db.get(self._db_name, 'chats', []):
             return
 
-        # Получаем старые сообщения чата (можно изменить лимит, если нужно больше сообщений)
+        # Получаем старые сообщения чата (500 сообщений)
         msgs = []
-        async for message in m.client.iter_messages(m.chat.id, limit=50):  # Получаем последние 50 сообщений
-            if message.text:  # Проверка, что text не None и не пустой
+        async for message in m.client.iter_messages(m.chat.id, limit=500):  # Получаем последние 500 сообщений
+            # Проверяем, что text не None и не пустой
+            if message.text and isinstance(message.text, str) and message.text.strip():  # Проверка на None и на пустые строки
                 msgs.append(message.text)
 
         if not msgs:
@@ -61,4 +62,9 @@ class MegaMozgMod(loader.Module):
         random_message = random.choice(msgs)
 
         # Отправляем выбранное сообщение в ответ
-        await m.reply(random_message)
+        try:
+            if random_message:  # Проверяем, что выбранное сообщение не пустое
+                await m.reply(random_message)
+        except Exception as e:
+            # Логируем ошибку, если возникла ошибка при отправке сообщения
+            print(f"Ошибка при отправке сообщения: {e}")
