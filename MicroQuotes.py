@@ -51,7 +51,7 @@ class MegaMozgMod(loader.Module):
         # Получаем старые сообщения чата (500 сообщений)
         msgs = []
         async for message in m.client.iter_messages(m.chat.id, limit=500):  # Получаем последние 500 сообщений
-            # Проверяем, что text не None и не пустой
+            # Проверяем, что text существует и является строкой
             if message.text and isinstance(message.text, str) and message.text.strip():  # Проверка на None и на пустые строки
                 msgs.append(message.text)
 
