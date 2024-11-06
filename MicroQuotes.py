@@ -45,18 +45,31 @@ class MegaMozgMod(loader.Module):
             return
         if m.sender_id == (await m.client.get_me()).id or not m.chat:
             return
-        if m.chat.id not in self.db.get(self._db_name, 'chats', []):
+        
+        # Получаем id чата
+        chat_id = m.chat.id
+        # Получаем список чатов из базы данных
+        chats: list = self.db.get(self._db_name, 'chats', [])
+        
+        # Если чат не включен в список, прекращаем выполнение
+        if chat_id not in chats:
             return
 
-        # Получаем старые сообщения чата (500 сообщений)
+        # Получаем шанс из базы данных
+        ch = self.db.get(self._db_name, 'chance', 0)
+        if ch != 0:
+            if random.randint(0, ch) != 0:
+                return
+        
+        # Получаем последние 500 сообщений из чата
         msgs = []
         async for message in m.client.iter_messages(m.chat.id, limit=500):  # Получаем последние 500 сообщений
-            # Проверяем, что text существует и является строкой
-            if message.text and isinstance(message.text, str) and message.text.strip():  # Проверка на None и на пустые строки
+            if message.text and isinstance(message.text, str) and message.text.strip():  # Проверка на None и пустые строки
                 msgs.append(message.text)
 
+        # Если сообщений нет, ничего не отправляем
         if not msgs:
-            return  # Если сообщений нет, ничего не отправляем
+            return
 
         # Выбираем случайное сообщение из истории чата
         random_message = random.choice(msgs)
