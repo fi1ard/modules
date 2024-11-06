@@ -51,7 +51,7 @@ class MegaMozgMod(loader.Module):
         # Получаем старые сообщения чата (можно изменить лимит, если нужно больше сообщений)
         msgs = []
         async for message in m.client.iter_messages(m.chat.id, limit=50):  # Получаем последние 50 сообщений
-            if message.text:  # Проверка на None
+            if message.text:  # Проверка, что text не None и не пустой
                 msgs.append(message.text)
 
         if not msgs:
