@@ -3,18 +3,18 @@ from telethon import types
 from .. import loader, utils
 
 @loader.tds
-class RuslanChebykinMod(loader.Module):
-    """Ruslan Chebykin Module - Простой мод для работы с случайными ответами в чате."""
-    
+class MajorPodzalupenkoMod(loader.Module):
+    """Майор Подзалупенко - Мод для случайных ответов в чате"""
+
     strings = {
-        'name': 'RuslanChebykin',
-        'pref': '<b>[Ruslan Chebykin]</b> ',
+        'name': 'MajorPodzalupenko',
+        'pref': '<b>[Майор Подзалупенко]</b> ',
         'on': '{}Включён',
         'off': '{}Выключен',
         'need_arg': '{}Нужен аргумент',
         'status': '{}{}',
     }
-    _db_name = 'RuslanChebykin'
+    _db_name = 'MajorPodzalupenko'
 
     async def client_ready(self, _, db):
         self.db = db
@@ -23,8 +23,8 @@ class RuslanChebykinMod(loader.Module):
     def str2bool(v):
         return v.lower() in ("yes", "y", "ye", "yea", "true", "t", "1", "on", "enable", "start", "run", "go", "да")
 
-    async def ruslancmd(self, m: types.Message):
-        '.ruslan - Включить/выключить режим дурачка для текущего чата (Ruslan Chebykin)'
+    async def podzalupencmd(self, m: types.Message):
+        '.podzalupen - Включить/выключить режим дурачка для текущего чата (Майор Подзалупенко)'
         chat = m.chat.id
         active_chats = self.db.get(self._db_name, 'chats', [])
 
@@ -37,8 +37,8 @@ class RuslanChebykinMod(loader.Module):
 
         self.db.set(self._db_name, 'chats', active_chats)
 
-    async def ruslanchancecmd(self, m: types.Message):
-        '.ruslanchance <int> - Установить шанс ответа 1 к N для текущего чата (0 - всегда отвечать) (Ruslan Chebykin)'
+    async def podzalupenchancecmd(self, m: types.Message):
+        '.podzalupenchance <int> - Установить шанс ответа 1 к N для текущего чата (0 - всегда отвечать) (Майор Подзалупенко)'
         args = utils.get_args_raw(m)
         if args.isdigit():
             chance = int(args)
@@ -49,8 +49,8 @@ class RuslanChebykinMod(loader.Module):
             return await utils.answer(m, self.strings('status').format(self.strings('pref'), chance))
         return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
 
-    async def ruslanfreqcmd(self, m: types.Message):
-        '.ruslanfreq <int> - Установить частоту самостоятельных сообщений (1 к N, 0 - всегда отправлять) (Ruslan Chebykin)'
+    async def podzalupenfreqcmd(self, m: types.Message):
+        '.podzalupenfreq <int> - Установить частоту самостоятельных сообщений (1 к N, 0 - всегда отправлять) (Майор Подзалупенко)'
         args = utils.get_args_raw(m)
         if args.isdigit():
             frequency = int(args)
