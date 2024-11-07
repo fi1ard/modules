@@ -3,16 +3,18 @@ from telethon import types
 from .. import loader, utils
 
 @loader.tds
-class MegaMozgMod(loader.Module):
+class RuslanChebykinMod(loader.Module):
+    """Ruslan Chebykin Module - Простой мод для работы с случайными ответами в чате."""
+    
     strings = {
-        'name': 'MegaMozg',
-        'pref': '<b>[MegaMozg]</b> ',
+        'name': 'RuslanChebykin',
+        'pref': '<b>[Ruslan Chebykin]</b> ',
         'on': '{}Включён',
         'off': '{}Выключен',
         'need_arg': '{}Нужен аргумент',
         'status': '{}{}',
     }
-    _db_name = 'MegaMozg'
+    _db_name = 'RuslanChebykin'
 
     async def client_ready(self, _, db):
         self.db = db
@@ -21,53 +23,72 @@ class MegaMozgMod(loader.Module):
     def str2bool(v):
         return v.lower() in ("yes", "y", "ye", "yea", "true", "t", "1", "on", "enable", "start", "run", "go", "да")
 
-    async def mozgcmd(self, m: types.Message):
-        '.mozg - Включить режим дурачка'
-        if not m.chat:
-            return
+    async def ruslancmd(self, m: types.Message):
+        '.ruslan - Включить/выключить режим дурачка для текущего чата (Ruslan Chebykin)'
         chat = m.chat.id
-        chats: list = self.db.get(self._db_name, 'chats', [])
-        if chat not in chats:
-            chats.append(chat)
-            self.db.set(self._db_name, 'chats', chats)
-            return await utils.answer(m, self.strings('on').format(self.strings('pref')))
-        # Если чат уже есть в списке, удаляем его для выключения
-        chats.remove(chat)
-        self.db.set(self._db_name, 'chats', chats)
-        return await utils.answer(m, self.strings('off').format(self.strings('pref')))
+        active_chats = self.db.get(self._db_name, 'chats', [])
 
-    async def mozgchancecmd(self, m: types.Message):
-        '.mozgchance <int> - Установить шанс 1 к N. 0 - всегда отвечать'
-        args: str = utils.get_args_raw(m)
+        if chat in active_chats:
+            active_chats.remove(chat)
+            await utils.answer(m, self.strings('off').format(self.strings('pref')))
+        else:
+            active_chats.append(chat)
+            await utils.answer(m, self.strings('on').format(self.strings('pref')))
+
+        self.db.set(self._db_name, 'chats', active_chats)
+
+    async def ruslanchancecmd(self, m: types.Message):
+        '.ruslanchance <int> - Установить шанс ответа 1 к N для текущего чата (0 - всегда отвечать) (Ruslan Chebykin)'
+        args = utils.get_args_raw(m)
         if args.isdigit():
-            self.db.set(self._db_name, 'chance', int(args))
-            return await utils.answer(m, self.strings('status').format(self.strings('pref'), args))
+            chance = int(args)
+            chat_id = m.chat.id
+            chances = self.db.get(self._db_name, 'chances', {})
+            chances[chat_id] = chance
+            self.db.set(self._db_name, 'chances', chances)
+            return await utils.answer(m, self.strings('status').format(self.strings('pref'), chance))
+        return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
+
+    async def ruslanfreqcmd(self, m: types.Message):
+        '.ruslanfreq <int> - Установить частоту самостоятельных сообщений (1 к N, 0 - всегда отправлять) (Ruslan Chebykin)'
+        args = utils.get_args_raw(m)
+        if args.isdigit():
+            frequency = int(args)
+            chat_id = m.chat.id
+            frequencies = self.db.get(self._db_name, 'frequencies', {})
+            frequencies[chat_id] = frequency
+            self.db.set(self._db_name, 'frequencies', frequencies)
+            return await utils.answer(m, self.strings('status').format(self.strings('pref'), frequency))
         return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
 
     async def watcher(self, m: types.Message):
-        if not isinstance(m, types.Message):
-            return
-        if m.sender_id == (await m.client.get_me()).id or not m.chat:
-            return
-        if m.chat.id not in self.db.get(self._db_name, 'chats', []):
+        if not isinstance(m, types.Message) or not m.chat:
             return
 
-        # Получаем шанс из базы данных, по умолчанию 0 (всегда отвечать)
-        chance = self.db.get(self._db_name, 'chance', 0)
-        if chance > 0 and random.randint(1, chance) != 1:
-            return  # Пропускаем сообщение, если случайное число не равно 1
+        chat_id = m.chat.id
+        active_chats = self.db.get(self._db_name, 'chats', [])
+        if chat_id not in active_chats:
+            return
 
-        # Получаем старые сообщения чата (можно изменить лимит, если нужно больше сообщений)
+        # Получаем шанс ответа и частоту самостоятельных сообщений для текущего чата
+        chances = self.db.get(self._db_name, 'chances', {})
+        chance = chances.get(chat_id, 0)
+
+        frequencies = self.db.get(self._db_name, 'frequencies', {})
+        frequency = frequencies.get(chat_id, 0)
+
+        # Случайное сообщение из истории чата
         msgs = []
-        async for message in m.client.iter_messages(m.chat.id, limit=50):  # Получаем последние 50 сообщений
+        async for message in m.client.iter_messages(m.chat.id, limit=50):
             if message.text:
                 msgs.append(message.text)
-
         if not msgs:
-            return  # Если сообщений нет, ничего не отправляем
+            return
 
-        # Выбираем случайное сообщение из истории чата
         random_message = random.choice(msgs)
 
-        # Отправляем выбранное сообщение в ответ
-        await m.reply(random_message)
+        # Проверка на самостоятельное сообщение
+        if frequency > 0 and random.randint(1, frequency) == 1:
+            await m.client.send_message(m.chat.id, random_message)
+        elif chance == 0 or random.randint(1, chance) == 1:
+            await m.reply(random_message)
