@@ -1,51 +1,126 @@
-_C='png'
-_B='name'
-_A='image'
-_R='отражает'
-_P='часть.'
-from ..  import loader as _L,utils as U
-import logging,asyncio
-from telethon.tl.types import DocumentAttributeFilename as DAF
-from PIL import Image,ImageOps as IO
-from io import BytesIO as ist
-logger=logging.getLogger(__name__)
-@_L.tds
-class MFMod(_L.Module):
-	f'{_R} фоточки';strings={_B:'MirrorFlip'}
-	def __init__(A):A.name=A.strings[_B]
-	async def llcmd(A,message):await KZD(message,1)
-	async def rrcmd(A,message):await KZD(message,2)
-	async def uucmd(A,message):await KZD(message,3)
-	async def ddcmd(A,message):await KZD(message,4)
-async def KZD(message,type):
-	S='sticker';A=message;N=await A.get_reply_message();Q,J=await CM(N)
-	if not Q or not N:await A.edit('<b>Реплай на стикер или фото!</b>');return
-	O='KZD.'+J;P=U.get_args_raw(A)
-	if P:
-		if P in[_A[:A]for A in range(1,len(_A)+1)]:O='KZD.png';J=_C
-		if P in[S[:A]for A in range(1,len(S)+1)]:O='KZD.webp';J='webp'
-	R=ist();await A.edit('<b>Извиняюсь...</b>');await A.client.download_media(Q,R);E=Image.open(R);B,C=E.size
-	if B%2!=0 and type in[1,2]or C%2!=0 and type in[3,4]:E=E.resize((B+1,C+1));C,B=E.size
-	if type==1:D=0;F=0;G=B//2;H=C;K=G;L=D
-	if type==2:D=B//2;F=0;G=B;H=C;K=F;L=F
-	if type==3:D=0;F=0;G=B;H=C//2;K=D;L=H
-	if type==4:D=0;F=C//2;G=B;H=C;K=D;L=D
-	I=E.crop((D,F,G,H))
-	if type in[1,2]:I=IO.mirror(I)
-	else:I=IO.flip(I)
-	E.paste(I,(K,L));M=ist();M.name=O;E.save(M,J);M.seek(0);await A.client.send_file(A.to_id,M,reply_to=N);await A.delete()
-async def CM(R):
-	D=False;C=None;A=R
-	if A and A.media:
-		if A.photo:B=A.photo;E=_C
-		elif A.document:
-			if DAF(file_name='AnimatedSticker.tgs')in A.media.document.attributes:return D,C
-			if A.gif or A.video or A.audio or A.voice:return D,C
-			B=A.media.document
-			if _A not in B.mime_type:return D,C
-			E=B.mime_type.split('/')[1]
-		else:return D,C
-	else:return D,C
-	if not B or B is C:return D,C
-	else:return B,E
-#Блять ну я и долбаёб так код сохранять
+import random
+from telethon import types
+from .. import loader, utils
+from asyncio import sleep
+
+@loader.tds
+class ChipalinoMod(loader.Module):
+    """Чипалино - Мод для случайных ответов и репостов в чате"""
+
+    strings = {
+        'name': 'Chipalino',
+        'pref': '<b>[Чипалино]</b> ',
+        'on': '{}Включён',
+        'off': '{}Выключен',
+        'need_arg': '{}Нужен аргумент',
+        'status': '{}{}',
+    }
+    _db_name = 'Chipalino'
+
+    async def client_ready(self, _, db):
+        self.db = db
+
+    async def chipalinocmd(self, m: types.Message):
+        '.chipalino - Включить/выключить режим Чипалино для текущего чата'
+        chat = m.chat.id
+        active_chats = self.db.get(self._db_name, 'chats', [])
+
+        if chat in active_chats:
+            active_chats.remove(chat)
+            await utils.answer(m, self.strings('off').format(self.strings('pref')))
+        else:
+            active_chats.append(chat)
+            await utils.answer(m, self.strings('on').format(self.strings('pref')))
+
+        self.db.set(self._db_name, 'chats', active_chats)
+
+    async def chipalinochancecmd(self, m: types.Message):
+        '.chipalinochance <int> - Установить шанс ответа 1 к N для текущего чата (0 - всегда отвечать)'
+        args = utils.get_args_raw(m)
+        if args.isdigit():
+            chance = int(args)
+            chat_id = m.chat.id
+            chances = self.db.get(self._db_name, 'chances', {})
+            chances[chat_id] = chance
+            self.db.set(self._db_name, 'chances', chances)
+            return await utils.answer(m, self.strings('status').format(self.strings('pref'), chance))
+        return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
+
+    async def chipalinofreqcmd(self, m: types.Message):
+        '.chipalinofreq <int> - Установить частоту самостоятельных сообщений (1 к N)'
+        args = utils.get_args_raw(m)
+        if args.isdigit():
+            frequency = int(args)
+            chat_id = m.chat.id
+            frequencies = self.db.get(self._db_name, 'frequencies', {})
+            frequencies[chat_id] = frequency
+            self.db.set(self._db_name, 'frequencies', frequencies)
+            return await utils.answer(m, self.strings('status').format(self.strings('pref'), frequency))
+        return await utils.answer(m, self.strings('need_arg').format(self.strings('pref')))
+
+    async def watcher(self, m: types.Message):
+        if not isinstance(m, types.Message) or not m.chat:
+            return
+
+        chat_id = m.chat.id
+        active_chats = self.db.get(self._db_name, 'chats', [])
+        if chat_id not in active_chats:
+            return
+
+        # Получаем шанс ответа и частоту самостоятельных сообщений для текущего чата
+        chances = self.db.get(self._db_name, 'chances', {})
+        chance = chances.get(chat_id, 0)
+
+        frequencies = self.db.get(self._db_name, 'frequencies', {})
+        frequency = frequencies.get(chat_id, 0)
+
+        # Случайное сообщение из истории чата
+        msgs = []
+        async for message in m.client.iter_messages(m.chat.id, limit=50):
+            msgs.append(message)
+        if not msgs:
+            return
+
+        random_message = random.choice(msgs)
+
+        # Проверка на самостоятельное сообщение
+        if frequency > 0 and random.randint(1, frequency) == 1:
+            await self.send_random_message(m.client, m.chat.id, random_message)
+
+        # Проверка на ответное сообщение
+        elif chance == 0 or random.randint(1, chance) == 1:
+            await self.send_random_message(m.client, m.chat.id, random_message, reply_to=m)
+
+    async def send_random_message(self, client, chat_id, message, reply_to=None):
+        """
+        Функция для отправки случайного сообщения.
+        """
+        if message.text:  # Если это текстовое сообщение
+            await client.send_message(chat_id, message.text, reply_to=reply_to)
+        elif message.photo:  # Если это фото
+            await client.send_file(chat_id, message.photo, caption=message.text, reply_to=reply_to)
+        elif message.sticker:  # Если это стикер
+            await client.send_file(chat_id, message.sticker, reply_to=reply_to)
+        elif message.voice:  # Если это голосовое сообщение
+            await client.send_file(chat_id, message.voice, reply_to=reply_to)
+        elif message.document:  # Если это другой файл
+            await client.send_file(chat_id, message.document, caption=message.text, reply_to=reply_to)
+
+    async def independent_message_sender(self):
+        """
+        Запуск самостоятельной отправки случайного сообщения из истории чата
+        в любое время с учетом установленной частоты.
+        """
+        while True:
+            active_chats = self.db.get(self._db_name, 'chats', [])
+            for chat_id in active_chats:
+                frequencies = self.db.get(self._db_name, 'frequencies', {})
+                frequency = frequencies.get(chat_id, 0)
+                if frequency > 0 and random.randint(1, frequency) == 1:
+                    msgs = []
+                    async for message in self.client.iter_messages(chat_id, limit=50):
+                        msgs.append(message)
+                    if msgs:
+                        random_message = random.choice(msgs)
+                        await self.send_random_message(self.client, chat_id, random_message)
+            await sleep(10)  # Задержка между проверками, чтобы не нагружать чат
