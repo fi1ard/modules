@@ -30,7 +30,11 @@ class MegaMozgMod(loader.Module):
         if chat not in chats:
             chats.append(chat)
             self.db.set(self._db_name, 'chats', chats)
-        return await utils.answer(m, self.strings('on').format(self.strings('pref')))
+            return await utils.answer(m, self.strings('on').format(self.strings('pref')))
+        # Если чат уже есть в списке, удаляем его для выключения
+        chats.remove(chat)
+        self.db.set(self._db_name, 'chats', chats)
+        return await utils.answer(m, self.strings('off').format(self.strings('pref')))
 
     async def mozgchancecmd(self, m: types.Message):
         '.mozgchance <int> - Установить шанс 1 к N. 0 - всегда отвечать'
@@ -45,39 +49,25 @@ class MegaMozgMod(loader.Module):
             return
         if m.sender_id == (await m.client.get_me()).id or not m.chat:
             return
-        
-        # Получаем id чата
-        chat_id = m.chat.id
-        # Получаем список чатов из базы данных
-        chats: list = self.db.get(self._db_name, 'chats', [])
-        
-        # Если чат не включен в список, прекращаем выполнение
-        if chat_id not in chats:
+        if m.chat.id not in self.db.get(self._db_name, 'chats', []):
             return
 
-        # Получаем шанс из базы данных
-        ch = self.db.get(self._db_name, 'chance', 0)
-        if ch != 0:
-            if random.randint(0, ch) != 0:
-                return
-        
-        # Получаем последние 500 сообщений из чата
+        # Получаем шанс из базы данных, по умолчанию 0 (всегда отвечать)
+        chance = self.db.get(self._db_name, 'chance', 0)
+        if chance > 0 and random.randint(1, chance) != 1:
+            return  # Пропускаем сообщение, если случайное число не равно 1
+
+        # Получаем старые сообщения чата (можно изменить лимит, если нужно больше сообщений)
         msgs = []
-        async for message in m.client.iter_messages(m.chat.id, limit=500):  # Получаем последние 500 сообщений
-            if message.text and isinstance(message.text, str) and message.text.strip():  # Проверка на None и пустые строки
+        async for message in m.client.iter_messages(m.chat.id, limit=50):  # Получаем последние 50 сообщений
+            if message.text:
                 msgs.append(message.text)
 
-        # Если сообщений нет, ничего не отправляем
         if not msgs:
-            return
+            return  # Если сообщений нет, ничего не отправляем
 
         # Выбираем случайное сообщение из истории чата
         random_message = random.choice(msgs)
 
         # Отправляем выбранное сообщение в ответ
-        try:
-            if random_message:  # Проверяем, что выбранное сообщение не пустое
-                await m.reply(random_message)
-        except Exception as e:
-            # Логируем ошибку, если возникла ошибка при отправке сообщения
-            print(f"Ошибка при отправке сообщения: {e}")
+        await m.reply(random_message)
